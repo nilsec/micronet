@@ -237,9 +237,24 @@ def gen_c():
                     volume_shape,
                     offset)
 
+def gen_validation_b():
+    # xy: 100 - 1100, z: 90 - 120
+    tracing = "/groups/funke/home/ecksteinn/data/mt_data/cremi/tracings/b+_validation_master.nml"
+    volume_shape = np.array([30,1000,1000])
+    offset = np.array([100,100,90])
+    voxel_size = [40.,4.,4.]
+    write_to = "./b+_validation_master.h5"
+
+    tracing_to_volume(tracing,
+                      volume_shape,
+                      offset,
+                      voxel_size,
+                      write_to=write_to)
+
 if __name__ == "__main__":
-    tracing = "/groups/funke/home/ecksteinn/data/mt_data/cremi/tracings/a+_master.nml"
-    analyze_tracing(tracing)
-    gen_a()
-    gen_b()
-    gen_c()
+    gen_validation_b()
+    #tracing = "/groups/funke/home/ecksteinn/data/mt_data/cremi/tracings/a+_master.nml"
+    #analyze_tracing(tracing)
+    #gen_a()
+    #gen_b()
+    #gen_c()
