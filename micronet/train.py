@@ -32,8 +32,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
     tracing = ArrayKey('TRACING')
     lsds = ArrayKey('LSDS')
     gt_lsds = ArrayKey('GT_LSDS')
-    loss_weights_soft_mask = ArrayKey('LOSS_WEIGHTS_SOFT_MASK')
-    loss_weights_derivatives = ArrayKey('LOSS_WEIGHTS_DERIVATIVES')
+    loss_weights_lsds = ArrayKey('LOSS_WEIGHTS_LSDS')
 
     voxel_size = Coordinate((40, 4, 4))
     input_size = Coordinate(config['input_shape'])*voxel_size
@@ -46,8 +45,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
     
     snapshot_request = BatchRequest({
         lsds: request[tracing],
-        loss_weights_soft_mask: request[tracing],
-        loss_weights_derivatives: request[tracing]
+        loss_weights_lsds: request[tracing]
         })
 
     data_sources = tuple(
@@ -64,6 +62,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
         ) +
         Normalize(raw) +
         Pad(raw, None) +
+        Pad(tracing, Coordinate((10, 100, 100))) + 
         RandomLocation()
         for sample in samples
     )
@@ -85,7 +84,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
         AddLocalShapeDescriptor(
             tracing,
             gt_lsds,
-            sigma=2.0,
+            sigma=4.0,
             downsample=1) +
         IntensityScaleShift(raw, 2,-1) +
         PreCache(
@@ -101,8 +100,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
             },
             outputs={
                 config['lsds']: lsds,
-                config['loss_weights_soft_mask']: loss_weights_soft_mask,
-                config['loss_weights_derivatives']: loss_weights_derivatives
+                config['loss_weights_lsds']: loss_weights_lsds
             },
             gradients={},
             summary=config['summary'],
@@ -114,8 +112,7 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
                 tracing: 'tracing',
                 gt_lsds: 'gt_lsds',
                 lsds: 'lsds',
-                loss_weights_soft_mask: 'loss_weights_soft_mask',
-                loss_weights_derivatives: 'loss_weights_derivatives'
+                loss_weights_lsds: 'loss_weights_lsds'
             },
             dataset_dtypes={
                 tracing: np.uint64
