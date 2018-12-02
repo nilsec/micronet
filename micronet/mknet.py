@@ -10,7 +10,7 @@ def create_network(input_shape, name, run):
     raw = tf.placeholder(tf.float32, shape=input_shape)
     raw_batched = tf.reshape(raw, (1, 1) + input_shape)
 
-    out, _, _ = unet(raw_batched, 10, 3, [[1,3,3],[1,3,3]])
+    out, _, _ = unet(raw_batched, 10, 4, [[1,1,1],[1,2,2],[1,2,2]])
 
     lsds_batched, _ = conv_pass(
         out,
@@ -31,25 +31,17 @@ def create_network(input_shape, name, run):
 
     # Soft weights for binary mask
     binary_mask = tf.cast(gt_soft_mask > 0, tf.float32)
-    loss_weights_soft_mask = tf.ones(binary_mask.get_shape()) 
+    loss_weights_soft_mask = tf.ones(binary_mask.get_shape())
     loss_weights_soft_mask += tf.multiply(binary_mask, tf.reduce_sum(binary_mask))
     loss_weights_soft_mask -= binary_mask
-    loss_weights_soft_mask /= tf.reduce_sum(loss_weights_soft_mask)
+    #loss_weights_soft_mask /= tf.reduce_sum(loss_weights_soft_mask)
 
-    # Hard mask for derivatives
-    loss_weights_derivatives = tf.cast(gt_derivatives > 0, tf.float32)
+    loss_weights_lsds = tf.stack([loss_weights_soft_mask] * 10)
 
-    loss_soft_mask = tf.losses.mean_squared_error(
-                                gt_soft_mask,
-                                soft_mask,
-                                loss_weights_soft_mask)
-
-    loss_derivatives = tf.losses.mean_squared_error(
-                                gt_derivatives,
-                                derivatives,
-                                loss_weights_derivatives)
-
-    loss = loss_soft_mask + loss_derivatives
+    loss = tf.losses.mean_squared_error(
+                                lsds,
+                                gt_lsds,
+                                loss_weights_lsds)
 
     summary = tf.summary.scalar('loss', loss)
 
@@ -74,8 +66,7 @@ def create_network(input_shape, name, run):
         'raw': raw.name,
         'lsds': lsds.name,
         'gt_lsds': gt_lsds.name,
-        'loss_weights_soft_mask': loss_weights_soft_mask.name,
-        'loss_weights_derivatives': loss_weights_derivatives.name,
+        'loss_weights_lsds': loss_weights_soft_mask.name,
         'loss': loss.name,
         'optimizer': optimizer.name,
         'input_shape': input_shape,
@@ -87,4 +78,4 @@ def create_network(input_shape, name, run):
         json.dump(config, f)
 
 if __name__ == "__main__":
-    create_network((24, 240, 240), 'micro_net', 1)
+    create_network((32, 320, 320), 'micro_net', 8)
