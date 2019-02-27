@@ -10,7 +10,7 @@ def create_network(input_shape, name, run):
     raw = tf.placeholder(tf.float32, shape=input_shape)
     raw_batched = tf.reshape(raw, (1, 1) + input_shape)
 
-    out, _, _ = unet(raw_batched, 10, 4, [[1,1,1],[1,2,2],[1,2,2]])
+    out, _, _ = unet(raw_batched, 10, 4, [[1,2,2],[1,2,2],[1,2,2]])
 
     lsds_batched, _ = conv_pass(
         out,
@@ -23,6 +23,10 @@ def create_network(input_shape, name, run):
 
     lsds = tf.reshape(lsds_batched, output_shape)
     soft_mask = lsds[9,:,:,:]
+
+    window_size = [1,10,10]
+    maxima = max_detection(soft_mask, window_size, 0.4)
+
     derivatives = lsds[:9,:,:,:]
 
     gt_lsds = tf.placeholder(tf.float32, shape=output_shape)
@@ -71,11 +75,22 @@ def create_network(input_shape, name, run):
         'optimizer': optimizer.name,
         'input_shape': input_shape,
         'output_shape': output_shape,
-        'summary': summary.name
+        'summary': summary.name,
+        'maxima': maxima.name
     }
 
     with open(output_dir + "/" + name + '.json', 'w') as f:
         json.dump(config, f)
+
+def max_detection(soft_mask, window_size, threshold):
+    hard_mask = soft_mask >= threshold
+    max_pool = tf.nn.max_pool3d(soft_mask, window_size, window_size, padding="SAME", data_format="NCDHW")
+    ones = tf.ones(window_size)
+    upsampled = tf.contrib.kfac.utils.kronecker_product(max_pool, ones)
+    maxima_locations = upsampled == soft_mask
+    maxima = tf.logical_and(maxima_locations, hard_mask)
+
+    return maxima
 
 if __name__ == "__main__":
     create_network((32, 320, 320), 'micro_net', 8)

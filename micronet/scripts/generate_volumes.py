@@ -2,16 +2,18 @@ import numpy as np
 import operator
 import h5py
 from mtrack.preprocessing import nml_to_g1
+import pdb
 
 
-def read_tracing(tracing):
-    g1 = nml_to_g1(tracing, None)
+def read_tracing(tracing, edge_attribute=None):
+    g1 = nml_to_g1(tracing, None, edge_attribute)
     ccs = g1.get_components(2, None, return_graphs=True)
 
     tracks = []
     for cc in ccs:
         vertices = []
         edges = []
+        edge_attributes = []
         vertex_to_position = {}
 
         for v in cc.get_vertex_iterator():
@@ -20,8 +22,13 @@ def read_tracing(tracing):
 
         for e in cc.get_edge_iterator():
             edges.append((int(e.source()), int(e.target())))
+            if edge_attribute is not None:
+                edge_attributes.append(cc.get_edge_property(edge_attribute[0], e=e))
 
-        tracks.append([vertices, edges, vertex_to_position])
+        if edge_attribute is not None:
+            tracks.append([vertices, edges, vertex_to_position, edge_attributes])
+        else:
+            tracks.append([vertices, edges, vertex_to_position])
 
     return tracks
 
@@ -49,25 +56,37 @@ def tracing_to_volume(tracing,
                       volume_shape, 
                       offset,
                       voxel_size,
-                      write_to=None):
+                      write_to=None,
+                      edge_attribute=None):
 
     # Knossos has +1 offset:
-    knossos_offset = offset + 1
+    knossos_offset = offset
 
-    tracks = read_tracing(tracing)
-    canvas = np.zeros(volume_shape, dtype=np.uint16)
+    tracks = read_tracing(tracing, edge_attribute)
+    canvas = np.zeros(volume_shape, dtype=np.float)
 
     path_id = 1
     for track in tracks:
-        path = interpolate(vertices=track[0], 
-                           edges=track[1], 
-                           vertex_to_position=track[2], 
-                           voxel_size=voxel_size)
+        if edge_attribute is not None:
+            path, values = interpolate(vertices=track[0], 
+                                       edges=track[1], 
+                                       vertex_to_position=track[2], 
+                                       voxel_size=voxel_size,
+                                       edge_attributes=track[3])
+
+        else:
+            path, values = interpolate(vertices=track[0], 
+                                       edges=track[1], 
+                                       vertex_to_position=track[2], 
+                                       voxel_size=voxel_size,
+                                       edge_attributes=None)
+
 
         canvas = draw(canvas, 
                       knossos_offset,
                       path,
-                      path_id)
+                      path_id,
+                      values)
 
         path_id += 1
 
@@ -80,14 +99,21 @@ def tracing_to_volume(tracing,
     return canvas
 
 
-def draw(canvas, offset, path, path_id):
-    for point in path:
-        point -= offset
-        canvas[point[2], point[1], point[0]] = path_id
+def draw(canvas, offset, path, path_id, values=[]):
+
+    if values:
+        for point, value in zip(path, values):
+            point -= offset
+            canvas[point[2], point[1], point[0]] = (1. - value)
+    else:
+        for point, value in zip(path, values):
+            point -= offset
+            canvas[point[2], point[1], point[0]] = path_id
+
 
     return canvas
 
-def interpolate(vertices, edges, vertex_to_position, voxel_size):
+def interpolate(vertices, edges, vertex_to_position, voxel_size, edge_attributes=None):
     """
     vertices: list of vertex indices in a path
 
@@ -99,13 +125,17 @@ def interpolate(vertices, edges, vertex_to_position, voxel_size):
     """
 
     interpolation = []
-    for e in edges:
+    edge_values = []
+    for e, edge_attr in zip(edges, edge_attributes):
         p0 = vertex_to_position[e[0]]
         p1 = vertex_to_position[e[1]]
         line = dda3(start=p0, end=p1, scaling=voxel_size)
-        interpolation.extend(line)
+        if edge_attributes is not None:
+            interpolation.extend(line)
+            edge_values.extend([edge_attr] * len(line))
 
-    return np.unique(interpolation, axis=0)
+    return interpolation, edge_values
+    #return np.unique(interpolation, axis=0)
 
 def dda_round(x):
     """
@@ -251,10 +281,62 @@ def gen_validation_b():
                       voxel_size,
                       write_to=write_to)
 
+
+def gen_test_c():
+    # xy: 1000 - 2000, z: 10 - 140
+    tracing = "/groups/funke/home/ecksteinn/data/mt_data/cremi/tracings/c_test_master.nml"
+    volume_shape = np.array([30,1000,1000])
+    offset = np.array([1000,1000,10])
+    voxel_size = [40.,4.,4.]
+    write_to = "./c_test_master.h5"
+
+    tracing_to_volume(tracing,
+                      volume_shape,
+                      offset,
+                      voxel_size,
+                      write_to=write_to)
+
+
+def gen_prediction_run_7():
+    tracing = "/groups/funke/home/ecksteinn/Projects/microtubules/cremi/experiments/grid_search_lsd/run_7/results_0/grid_42/evaluation/comatch_100/reconstruction_cut.nml"
+    volume_shape = np.array([30,1000,1000])
+    offset = np.array([100,100,90])
+    voxel_size = [40.,4.,4.]
+    write_to = "./run7_grid42_validation.h5"
+
+    tracing_to_volume(tracing,
+                      volume_shape,
+                      offset,
+                      voxel_size,
+                      write_to=write_to)
+
+def gen_prediction_b_plus():
+    tracing = "/groups/funke/home/ecksteinn/Projects/microtubules/cremi/experiments/test_runs/run_7/b+_full/validated.nml"
+    volume_shape = np.array([130,1300,1300])
+    offset = np.array([0,0,0])
+    voxel_size = [40.,4.,4.]
+    write_to = "/groups/funke/home/ecksteinn/Projects/microtubules/cremi/experiments/visualize/b+_prediction_offset_corrected.h5"
+
+    tracing_to_volume(tracing,
+                      volume_shape,
+                      offset,
+                      voxel_size,
+                      write_to=write_to)
+
+def gen_pm_overlay():
+    tracing = "/groups/funke/home/ecksteinn/Projects/microtubules/mtrack/mtrack/4b_candidates.nml"
+    volume_shape = np.array([110,2900,2900])
+    offset = np.array([100,100,90])
+    voxel_size= [40,4,4]
+    write_to = "/groups/funke/home/ecksteinn/Projects/microtubules/mtrack/mtrack/4b_candidates.h5"
+    
+    canvas = tracing_to_volume(tracing,
+                               volume_shape,
+                               offset,
+                               voxel_size,
+                               write_to=write_to,
+                               edge_attribute=("edge_cost", float))
+
+
 if __name__ == "__main__":
-    gen_validation_b()
-    #tracing = "/groups/funke/home/ecksteinn/data/mt_data/cremi/tracings/a+_master.nml"
-    #analyze_tracing(tracing)
-    #gen_a()
-    #gen_b()
-    #gen_c()
+    gen_pm_overlay()

@@ -14,10 +14,11 @@ def crop_dataset(input_file,
     attrs = f[input_dataset].attrs.items()
     f.close()
 
-    data = data[:,
+    data = data[9,
                 z_lim["min"]:z_lim["max"],
                 y_lim["min"]:y_lim["max"],
                 x_lim["min"]:x_lim["max"]]
+
 
     f = h5py.File(output_file, "w")
     dset = f.create_dataset(name=output_dataset, data=data)
@@ -33,7 +34,7 @@ def lsd_prediction_to_softmask(lsd_prediction, output_file):
     f.close()
 
     print attrs
-    soft_mask = lsds[9,:,:,:]
+    soft_mask = lsds[0,:,:,:]
 
     f = h5py.File(output_file, "w")
     dset = f.create_dataset(name="exported_data", data=soft_mask)
@@ -42,6 +43,7 @@ def lsd_prediction_to_softmask(lsd_prediction, output_file):
     f.close()
 
 if __name__ == "__main__":
+    """
     crop_dataset("/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_10/prediction_0.h5",
                  "/prediction",
                  x_lim={"min": 104, "max": 1354},
@@ -49,8 +51,7 @@ if __name__ == "__main__":
                  z_lim={"min":1, "max": 126},
                  output_file="/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_10/softmask0_cropped.h5",
                  output_dataset="/exported_data")
+    """
 
-    """
-    lsd_prediction_to_softmask("/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_7/prediction3_cropped.h5", 
-                               "/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_7/softmask3_cropped.h5")
-    """
+    lsd_prediction_to_softmask("/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/cremi/03_predict/setup7/300000/lsds_B1.h5", 
+                               "/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/cremi/03_predict/setup7/300000/softmask_B1.h5")

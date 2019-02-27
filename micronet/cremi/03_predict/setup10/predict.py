@@ -93,8 +93,7 @@ def predict(
         pipeline.request_batch(BatchRequest())
     print("Prediction finished")
 
-if __name__ == "__main__":
-
+def predict_train():
     logging.basicConfig(level=logging.INFO)
     logging.getLogger('gunpowder.nodes.hdf5like_write_base').setLevel(logging.DEBUG)
 
@@ -130,3 +129,82 @@ if __name__ == "__main__":
         read_roi,
         output_file,
         output_dataset)
+
+
+def predict_test_C():
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger('gunpowder.nodes.hdf5like_write_base').setLevel(logging.DEBUG)
+
+    read_begin = (-10,0,0) 
+    read_size = (160,3000,3000)
+
+    read_roi = Roi(
+        read_begin,
+        read_size)
+
+    data_dir = "/groups/funke/home/ecksteinn/data/mt_data/cremi/data/MTTest_CremiTraining_Unaligned"
+    sample_base = "sample_{}_padded_20160501.hdf"
+    sample = "C"
+    
+    run = 10
+    prediction = "C0_-10z"
+    iteration = 3*10**5
+    input_file = data_dir + "/" + sample_base.format(sample)
+    input_dataset = "/volumes/raw"
+
+    output_base_dir = "/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_{}".format(run)
+    if not os.path.exists(output_base_dir):
+        os.makedirs(output_base_dir)
+    output_file = output_base_dir + "/prediction_{}.h5".format(prediction)
+    output_dataset = "prediction"
+
+    predict(
+        run,
+        iteration,
+        input_file,
+        input_dataset,
+        read_roi,
+        output_file,
+        output_dataset)
+
+
+def predict_validation_B():
+    logging.basicConfig(level=logging.INFO)
+    logging.getLogger('gunpowder.nodes.hdf5like_write_base').setLevel(logging.DEBUG)
+
+    read_begin = (50,0,0) 
+    read_size = (160,3000,3000)
+
+    read_roi = Roi(
+        read_begin,
+        read_size)
+
+    data_dir = "/groups/funke/home/ecksteinn/data/mt_data/cremi/data/MTTest_CremiTraining_Unaligned"
+    sample_base = "sample_{}_padded_20160501.hdf"
+    sample = "B"
+    
+    run = 7
+    prediction = "B1"
+    iteration = 3*10**5
+    input_file = data_dir + "/" + sample_base.format(sample)
+    input_dataset = "/volumes/raw"
+
+    output_base_dir = "/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/predictions/run_{}".format(run)
+    if not os.path.exists(output_base_dir):
+        os.makedirs(output_base_dir)
+    output_file = output_base_dir + "/prediction_{}.h5".format(prediction)
+    output_dataset = "prediction"
+
+    predict(
+        run,
+        iteration,
+        input_file,
+        input_dataset,
+        read_roi,
+        output_file,
+        output_dataset)
+
+
+
+if __name__ == "__main__":
+    predict_test_C()
