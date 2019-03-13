@@ -1,0 +1,2 @@
+model_checkpoint_path: "micro_net_checkpoint_130000"
+all_model_checkpoint_paths: "micro_net_checkpoint_130000"
