@@ -9,7 +9,7 @@ import json
 import tensorflow as tf
 import numpy as np
 
-data_dir = './data'
+data_dir = '/groups/funke/home/ecksteinn/Projects/microtubules/micronet/micronet/data'
 samples = [
     'a+_master',
     'b+_master',
@@ -30,9 +30,11 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
 
     raw = ArrayKey('RAW')
     tracing = ArrayKey('TRACING')
-    lsds = ArrayKey('LSDS')
+    soft_mask = ArrayKey('SOFT_MASK')
     gt_lsds = ArrayKey('GT_LSDS')
-    loss_weights_lsds = ArrayKey('LOSS_WEIGHTS_LSDS')
+    loss_weights_soft_mask = ArrayKey('LOSS_WEIGHTS_SOFT_MASK')
+    gt_maxima = ArrayKey('GT_MAXIMA')
+    pred_maxima = ArrayKey('PRED_MAXIMA')
 
     voxel_size = Coordinate((40, 4, 4))
     input_size = Coordinate(config['input_shape'])*voxel_size
@@ -44,8 +46,10 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
     request.add(gt_lsds, output_size)
     
     snapshot_request = BatchRequest({
-        lsds: request[tracing],
-        loss_weights_lsds: request[tracing]
+        soft_mask: request[tracing],
+        loss_weights_soft_mask: request[tracing],
+        gt_maxima: request[tracing],
+        pred_maxima: request[tracing]
         })
 
     data_sources = tuple(
@@ -99,8 +103,10 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
                 config['gt_lsds']: gt_lsds
             },
             outputs={
-                config['lsds']: lsds,
-                config['loss_weights_lsds']: loss_weights_lsds
+                config['soft_mask']: soft_mask,
+                config['loss_weights_soft_mask']: loss_weights_soft_mask,
+                config['gt_maxima']: gt_maxima,
+                config['pred_maxima']: pred_maxima,
             },
             gradients={},
             summary=config['summary'],
@@ -111,8 +117,10 @@ def train_until(max_iteration, snapshot_dir, checkpoint_dir, log_dir):
                 raw: 'raw',
                 tracing: 'tracing',
                 gt_lsds: 'gt_lsds',
-                lsds: 'lsds',
-                loss_weights_lsds: 'loss_weights_lsds'
+                soft_mask: 'soft_mask',
+                loss_weights_soft_mask: 'loss_weights_soft_mask',
+                gt_maxima: 'gt_maxima',
+                pred_maxima: 'pred_maxima'
             },
             dataset_dtypes={
                 tracing: np.uint64

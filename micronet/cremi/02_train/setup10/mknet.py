@@ -1,7 +1,8 @@
-from mala.networks import unet, conv_pass
+from funlib.learn.tensorflow import models
 import tensorflow as tf
 import os
 import json
+from candidate_extraction import max_detection
 
 def create_network(input_shape, name, run):
 
@@ -10,9 +11,9 @@ def create_network(input_shape, name, run):
     raw = tf.placeholder(tf.float32, shape=input_shape)
     raw_batched = tf.reshape(raw, (1, 1) + input_shape)
 
-    out, _, _ = unet(raw_batched, 10, 4, [[1,2,2],[1,2,2],[1,2,2]])
+    out, _, _ = models.unet(raw_batched, 12, 5, [[1,3,3],[1,3,3],[1,3,3]])
 
-    soft_mask_batched, _ = conv_pass(
+    soft_mask_batched, _ = models.conv_pass(
         out,
         kernel_sizes=[1],
         num_fmaps=1,
@@ -20,16 +21,14 @@ def create_network(input_shape, name, run):
 
     output_shape_batched = soft_mask_batched.get_shape().as_list()
     output_shape = output_shape_batched[1:] # strip the batch dimension
-    soft_mask = tf.reshape(soft_mask_batched, output_shape)
 
-    print("sm", soft_mask.get_shape().as_list())
+    soft_mask = tf.reshape(soft_mask_batched, output_shape[1:])
 
     gt_lsds = tf.placeholder(tf.float32, shape=[10] + list(output_shape[1:]))
-    print("gt_lsds", gt_lsds.get_shape().as_list())
     gt_soft_mask = gt_lsds[9,:,:,:]
-    gt_soft_mask = tf.reshape(gt_soft_mask, output_shape)
-    gt_derivatives = gt_lsds[:9,:,:,:]
-    print("gt_sm", gt_soft_mask.get_shape().as_list())
+
+    gt_maxima = tf.reshape(max_detection(tf.reshape(gt_soft_mask,[1] + gt_soft_mask.get_shape().as_list() + [1]), [1,1,5,5,1], 0.5), gt_soft_mask.get_shape())
+    pred_maxima = tf.reshape(max_detection(tf.reshape(soft_mask,[1] + gt_soft_mask.get_shape().as_list() + [1]), [1,1,5,5,1], 0.5), gt_soft_mask.get_shape())
 
     # Soft weights for binary mask
     binary_mask = tf.cast(gt_soft_mask > 0, tf.float32)
@@ -55,7 +54,7 @@ def create_network(input_shape, name, run):
     print("input shape : %s"%(input_shape,))
     print("output shape: %s"%(output_shape,))
 
-    output_dir = "checkpoints/run_{}".format(run)
+    output_dir = "./checkpoints/run_{}".format(run)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -63,18 +62,20 @@ def create_network(input_shape, name, run):
 
     config = {
         'raw': raw.name,
-        'lsds': soft_mask.name,
+        'soft_mask': soft_mask.name,
         'gt_lsds': gt_lsds.name,
-        'loss_weights_lsds': loss_weights_soft_mask.name,
+        'gt_maxima': gt_maxima.name,
+        'pred_maxima': pred_maxima.name,
+        'loss_weights_soft_mask': loss_weights_soft_mask.name,
         'loss': loss.name,
         'optimizer': optimizer.name,
         'input_shape': input_shape,
         'output_shape': output_shape,
-        'summary': summary.name
+        'summary': summary.name,
     }
 
     with open(output_dir + "/" + name + '.json', 'w') as f:
         json.dump(config, f)
 
 if __name__ == "__main__":
-    create_network((32, 320, 320), 'micro_net', 10)
+    create_network((32, 322, 322), 'micro_net', 0)

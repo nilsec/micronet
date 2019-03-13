@@ -60,7 +60,7 @@ def tracing_to_volume(tracing,
                       edge_attribute=None):
 
     # Knossos has +1 offset:
-    knossos_offset = offset
+    knossos_offset = offset + np.array([0,0,1])
 
     tracks = read_tracing(tracing, edge_attribute)
     canvas = np.zeros(volume_shape, dtype=np.float)
@@ -85,8 +85,7 @@ def tracing_to_volume(tracing,
         canvas = draw(canvas, 
                       knossos_offset,
                       path,
-                      path_id,
-                      values)
+                      path_id)
 
         path_id += 1
 
@@ -106,9 +105,10 @@ def draw(canvas, offset, path, path_id, values=[]):
             point -= offset
             canvas[point[2], point[1], point[0]] = (1. - value)
     else:
-        for point, value in zip(path, values):
+        for point in path:
             point -= offset
-            canvas[point[2], point[1], point[0]] = path_id
+            if point[2] >= 0:
+                canvas[point[2], point[1]-1, point[0]-1] = path_id
 
 
     return canvas
@@ -126,13 +126,17 @@ def interpolate(vertices, edges, vertex_to_position, voxel_size, edge_attributes
 
     interpolation = []
     edge_values = []
-    for e, edge_attr in zip(edges, edge_attributes):
+    i = 0
+    for e in edges:
         p0 = vertex_to_position[e[0]]
         p1 = vertex_to_position[e[1]]
         line = dda3(start=p0, end=p1, scaling=voxel_size)
         if edge_attributes is not None:
-            interpolation.extend(line)
+            edge_attr = edge_attributes[i]
             edge_values.extend([edge_attr] * len(line))
+
+        interpolation.extend(line)
+        i += 1
 
     return interpolation, edge_values
     #return np.unique(interpolation, axis=0)
@@ -179,10 +183,6 @@ def analyze_tracing(tracing):
         x.append(pos[0])
         y.append(pos[1])
         z.append(pos[2])
-
-    print "x: ", min(x), max(x)
-    print "y: ", min(y), max(y)
-    print "z: ", min(z), max(z)
 
 
 def gen_a():
@@ -281,6 +281,19 @@ def gen_validation_b():
                       voxel_size,
                       write_to=write_to)
 
+    source_h5 = "/groups/funke/home/ecksteinn/data/mt_data/cremi/data/MTTraining_CremiTest/sample_B+_20160601.hdf5"
+    source_dset = "/volumes/raw"
+
+    target_h5 = write_to
+    target_dset = "/raw"
+
+    add_raw_channel(source_h5,
+                    source_dset,
+                    target_h5,
+                    target_dset,
+                    volume_shape,
+                    offset)
+
 
 def gen_test_c():
     # xy: 1000 - 2000, z: 10 - 140
@@ -296,6 +309,18 @@ def gen_test_c():
                       voxel_size,
                       write_to=write_to)
 
+    source_h5 = "/groups/funke/home/ecksteinn/data/mt_data/cremi/data/MTTest_CremiTraining_Unaligned/sample_C_padded_20160501.hdf"
+    source_dset = "/volumes/raw"
+
+    target_h5 = write_to
+    target_dset = "/raw"
+
+    add_raw_channel(source_h5,
+                    source_dset,
+                    target_h5,
+                    target_dset,
+                    volume_shape,
+                    offset)
 
 def gen_prediction_run_7():
     tracing = "/groups/funke/home/ecksteinn/Projects/microtubules/cremi/experiments/grid_search_lsd/run_7/results_0/grid_42/evaluation/comatch_100/reconstruction_cut.nml"
@@ -339,4 +364,5 @@ def gen_pm_overlay():
 
 
 if __name__ == "__main__":
-    gen_pm_overlay()
+    #gen_validation_b()
+    gen_test_c()
